@@ -301,16 +301,29 @@ def get_us_stock_symbols(qlib_data_path: [str, Path] = None) -> list:
 
     @deco_retry
     def _get_eastmoney():
-        url = "http://4.push2.eastmoney.com/api/qt/clist/get?pn=1&pz=10000&fs=m:105,m:106,m:107&fields=f12"
-        resp = requests.get(url, timeout=None)
-        if resp.status_code != 200:
-            raise ValueError("request error")
-
-        try:
+        @deco_retry
+        def request_symbols(i):
+            url = f"http://4.push2.eastmoney.com/api/qt/clist/get?pn={i}&pz=10000&fs=m:105,m:106,m:107&fields=f12"
+            resp = requests.get(url, timeout=None)
+            if resp.status_code != 200:
+                raise ValueError("request error")
             _symbols = [_v["f12"].replace("_", "-P") for _v in resp.json()["data"]["diff"].values()]
-        except Exception as e:
-            logger.warning(f"request error: {e}")
-            raise
+            
+            try:
+                _symbols = [_v["f12"].replace("_", "-P") for _v in resp.json()["data"]["diff"].values()]
+            except Exception as e:
+                logger.warning(f"request error: {e}")
+                raise
+            
+            return _symbols
+        
+        _symbols = []
+        for i in range(1, 121):
+            symbols = request_symbols(i)
+            time.sleep(0.5)  # avoid overloading the server
+            _symbols += symbols
+        
+        _symbols = list(set(_symbols))
 
         if len(_symbols) < 8000:
             raise ValueError("request error")

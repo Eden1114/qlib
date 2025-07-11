@@ -51,7 +51,31 @@ _CALENDAR_MAP = {}
 # NOTE: Until 2020-10-20 20:00:00
 MINIMUM_SYMBOLS_NUM = 3900
 
+# from utils import deco_retry
+def deco_retry(retry: int = 5, retry_sleep: int = 3):
+    def deco_func(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            _retry = 5 if callable(retry) else retry
+            _result = None
+            for _i in range(1, _retry + 1):
+                try:
+                    _result = func(*args, **kwargs)
+                    break
 
+                except Exception as e:
+                    logger.warning(f"{func.__name__}: {_i} :{e}")
+                    if _i == _retry:
+                        raise
+
+                time.sleep(retry_sleep)
+            return _result
+
+        return wrapper
+
+    return deco_func(retry) if callable(retry) else deco_func
+
+@deco_retry
 def get_calendar_list(bench_code="CSI300") -> List[pd.Timestamp]:
     """get SH/SZ history calendar list
 
@@ -556,28 +580,6 @@ def symbol_prefix_to_sufix(symbol: str, capital: bool = True) -> str:
     return res.upper() if capital else res.lower()
 
 
-def deco_retry(retry: int = 5, retry_sleep: int = 3):
-    def deco_func(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            _retry = 5 if callable(retry) else retry
-            _result = None
-            for _i in range(1, _retry + 1):
-                try:
-                    _result = func(*args, **kwargs)
-                    break
-
-                except Exception as e:
-                    logger.warning(f"{func.__name__}: {_i} :{e}")
-                    if _i == _retry:
-                        raise
-
-                time.sleep(retry_sleep)
-            return _result
-
-        return wrapper
-
-    return deco_func(retry) if callable(retry) else deco_func
 
 
 def get_trading_date_by_shift(trading_list: list, trading_date: pd.Timestamp, shift: int = 1):
